@@ -1,5 +1,4 @@
-// ВЕРСИЯ v4 - Чтобы сбросить кэш у сотрудников
-const CACHE_NAME = 'stat-plan-v4';
+const CACHE_NAME = 'stat-astana-v5'; // Новая версия
 const urlsToCache = [
   './',
   './index.html',
@@ -7,7 +6,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', function(event) {
-  self.skipWaiting(); // Сразу активируем новую версию
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(function(cache) {
@@ -22,8 +21,7 @@ self.addEventListener('activate', function(event) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
           if (cacheName !== CACHE_NAME) {
-            console.log('Удаление старого кэша:', cacheName);
-            return caches.delete(cacheName);
+             return caches.delete(cacheName);
           }
         })
       );
