@@ -1,4 +1,5 @@
-const CACHE_NAME = 'stat-astana-v5'; // Новая версия
+// Изменили название кэша, чтобы сбросить старую версию
+const CACHE_NAME = 'plan-dep-2026-v2';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,6 +7,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', function(event) {
+  // При установке новой версии сразу берем управление
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -16,12 +18,13 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('activate', function(event) {
+  // Удаляем старые кэши (старый дизайн)
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
           if (cacheName !== CACHE_NAME) {
-             return caches.delete(cacheName);
+            return caches.delete(cacheName);
           }
         })
       );

@@ -1,38 +1,347 @@
-const CACHE_NAME = 'stat-astana-v5'; // Новая версия
-const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json'
-];
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>План Департамента 2026</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0984e3">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2910/2910768.png">
 
-self.addEventListener('install', function(event) {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(function(cache) {
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
+    <style>
+        /* СТИЛЬ ИЗ КРАСИВОГО ВАРИАНТА (Test1) */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #2d3436;
+            --text-sec: #636e72;
+            --accent: #0984e3;
+            
+            /* Цвета статусов */
+            --wait: #b2bec3;    /* Ожидание (серый) */
+            --work: #fdcb6e;    /* В работе (желтый) */
+            --today: #d63031;   /* Сегодня (красный) */
+            --done: #00b894;    /* Готово (зеленый) */
+        }
 
-self.addEventListener('activate', function(event) {
-  event.waitUntil(
-    caches.keys().then(function(cacheNames) {
-      return Promise.all(
-        cacheNames.map(function(cacheName) {
-          if (cacheName !== CACHE_NAME) {
-             return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-});
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: var(--text-main); -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
+        
+        /* HEADER */
+        .header { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .h-title { font-size: 24px; font-weight: 800; color: #2c3e50; }
+        .h-subtitle { font-size: 14px; color: var(--text-sec); margin-top: 5px; }
+        .h-date { font-size: 18px; color: var(--accent); font-weight: 600; text-align: right; }
 
-self.addEventListener('fetch', function(event) {
-  event.respondWith(
-    fetch(event.request).catch(function() {
-      return caches.match(event.request);
-    })
-  );
-});
+        /* LOADER */
+        #loader { text-align: center; padding: 40px; font-size: 16px; color: var(--text-sec); background: white; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* CONTROLS */
+        .controls { margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none; }
+        .controls::-webkit-scrollbar { display: none; }
+        .filter-btn { border: none; background: white; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 600; color: var(--text-sec); box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-right: 10px; transition: 0.2s; font-size: 13px; }
+        .filter-btn:hover { transform: translateY(-2px); }
+        .filter-btn.active { background: var(--accent); color: white; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(9, 132, 227, 0.3); }
+
+        /* GRID */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        /* CARD DESIGN */
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.04); transition: transform 0.2s; border-left: 6px solid transparent; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .card-cat { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #95a5a6; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .card-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; line-height: 1.4; color: #2d3436; }
+        
+        /* TIMELINE VISUALIZATION */
+        .timeline { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 10px; border-radius: 8px; font-size: 12px; color: #636e72; margin-bottom: 15px; border: 1px solid #eee; }
+        .t-point { display: flex; flex-direction: column; }
+        .t-label { font-size: 10px; text-transform: uppercase; color: #b2bec3; margin-bottom: 2px; }
+        .t-val { font-weight: 700; color: #2d3436; }
+        .t-arrow { color: #dfe6e9; font-size: 18px; }
+
+        /* STATUS BADGES */
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: white; letter-spacing: 0.5px; }
+
+        /* BUTTON */
+        .btn { text-decoration: none; text-align: center; background-color: #2d3436; color: white; padding: 12px; border-radius: 8px; font-weight: 600; transition: 0.2s; display: block; margin-top: auto; font-size: 14px; }
+        .btn:hover { background-color: var(--accent); }
+
+        /* COLOR CLASSES */
+        .st-wait { border-left-color: var(--wait); } 
+        .bg-wait { background: var(--wait); color: white; }
+        
+        .st-work { border-left-color: var(--work); } 
+        .bg-work { background: var(--work); color: #2d3436; }
+        
+        .st-today { border-left-color: var(--today); } 
+        .bg-today { background: var(--today); color: white; box-shadow: 0 2px 10px rgba(214, 48, 49, 0.3); }
+        
+        .st-done { border-left-color: var(--done); } 
+        .bg-done { background: var(--done); color: white; }
+
+        /* MODAL POPUP */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; padding: 30px; border-radius: 16px; width: 90%; max-width: 450px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2); animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from {transform: translateY(20px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+        
+        .modal-icon { font-size: 48px; margin-bottom: 15px; display: block; }
+        .modal-title { font-size: 20px; font-weight: 800; color: #2d3436; margin-bottom: 15px; }
+        .modal-list { text-align: left; background: #fff5f5; padding: 15px; border-radius: 10px; border-left: 4px solid var(--today); margin-bottom: 20px; max-height: 250px; overflow-y: auto; }
+        .modal-list ul { padding-left: 20px; margin: 0; }
+        .modal-list li { margin-bottom: 8px; font-weight: 600; color: #c0392b; font-size: 14px; }
+        .close-btn { background-color: var(--accent); color: white; border: none; padding: 14px; font-size: 15px; border-radius: 10px; cursor: pointer; font-weight: 700; width: 100%; transition: 0.2s; }
+        .close-btn:hover { background-color: #0870c0; }
+
+        /* PWA INSTALL BUTTON */
+        #installContainer { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; }
+        .install-btn { background: #2d3436; color: white; border: none; padding: 14px 28px; border-radius: 50px; font-weight: bold; box-shadow: 0 10px 25px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; font-size: 14px; }
+        .install-btn:hover { transform: translateX(-50%) scale(1.05); background: black; }
+
+    </style>
+</head>
+<body>
+
+<div id="notificationModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="modal-icon">🔥</span>
+        <div class="modal-title">СЕГОДНЯ ПУБЛИКАЦИЯ</div>
+        <div class="modal-list" id="modalListContent"></div>
+        <button class="close-btn" onclick="closeModal()">Принято, выгружаю на сайт</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <div class="h-title">План Департамента 2026</div>
+            <div class="h-subtitle">Мониторинг обновлений (Google Sync)</div>
+        </div>
+        <div class="h-date" id="currentDate"></div>
+    </div>
+
+    <div class="controls" id="categoryFilters">
+        <button class="filter-btn active" onclick="filterData('all')">Все отрасли</button>
+        </div>
+
+    <div id="loader">🔄 Синхронизация с Google Таблицей...</div>
+
+    <div class="grid" id="dashboardGrid"></div>
+</div>
+
+<div id="installContainer">
+    <button class="install-btn" onclick="installPWA()">📲 Установить приложение</button>
+</div>
+
+<script>
+    // ==========================================
+    // ССЫЛКА НА ВАШ ГУГЛ ДОКУМЕНТ (CSV)
+    // ==========================================
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSSiUUHVFLpn5WE5zwI7UOCNNz4gjENAX4ahMtDO7f8e_qvUpwTqtaBN0nfUzOU5unXMWvzwU5zhSkB/pub?output=csv';
+    
+    const STAT_URL = "https://stat.gov.kz/ru/region/astana/spreadsheets/";
+
+    // ==========================================
+    // ЛОГИКА
+    // ==========================================
+    
+    let allData = [];
+    const now = new Date();
+    const currentYear = 2026; 
+
+    document.getElementById('currentDate').innerText = now.toLocaleDateString('ru-RU', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+
+    // 1. Загрузка данных
+    async function fetchSheetData() {
+        try {
+            const response = await fetch(SHEET_CSV_URL);
+            if (!response.ok) throw new Error("Ошибка сети");
+            const text = await response.text();
+            parseCSV(text);
+        } catch (error) {
+            document.getElementById('loader').innerHTML = `❌ <b>Ошибка загрузки:</b><br>${error.message}<br>Проверьте интернет.`;
+            document.getElementById('loader').style.color = 'red';
+        }
+    }
+
+    // 2. Разбор CSV
+    function parseCSV(text) {
+        const rows = text.split('\n');
+        let currentCategory = "Общее"; 
+        allData = [];
+
+        rows.forEach((rowRaw, index) => {
+            if (index === 0) return;
+            
+            // Парсинг CSV
+            const cols = rowRaw.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
+            
+            let name = cols[0]?.replace(/"/g, '').trim(); 
+            let startRaw = cols[1]?.replace(/"/g, '').trim(); 
+            let endRaw = cols[2]?.replace(/"/g, '').trim();   
+
+            if (!name) return; 
+
+            // Если дат нет - это Заголовок категории
+            if (!startRaw && !endRaw) {
+                currentCategory = name;
+                return;
+            }
+
+            const startDate = parseRusDate(startRaw);
+            const endDate = parseRusDate(endRaw);
+
+            if (endDate) {
+                allData.push({
+                    name: name,
+                    category: currentCategory,
+                    start: startDate,
+                    end: endDate,
+                    startTxt: startRaw || "—",
+                    endTxt: endRaw
+                });
+            }
+        });
+
+        document.getElementById('loader').style.display = 'none';
+        generateFilters();
+        renderCards('all');
+        setTimeout(checkNotifications, 1000); 
+    }
+
+    // Парсинг даты
+    function parseRusDate(str) {
+        if (!str) return null;
+        str = str.toLowerCase().replace('.', '').trim();
+        const parts = str.split(' ');
+        if (parts.length < 2) return null;
+        
+        const day = parseInt(parts[0]);
+        const monthNames = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+        
+        let monthIndex = -1;
+        monthNames.forEach((m, i) => {
+            if (parts[1].includes(m)) monthIndex = i;
+        });
+
+        if (monthIndex === -1) return null;
+        return new Date(currentYear, monthIndex, day);
+    }
+
+    // Статусы
+    function getStatus(start, end) {
+        // Убираем часы/минуты для точного сравнения дней
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startT = start ? start.getTime() : null;
+        const endT = end.getTime();
+
+        if (today > endT) return { code: 'done', text: 'Завершено', class: 'st-done', badge: 'bg-done' };
+        if (today === endT) return { code: 'today', text: '🔥 СЕГОДНЯ', class: 'st-today', badge: 'bg-today' };
+        if (startT && today >= startT && today < endT) return { code: 'work', text: 'В работе', class: 'st-work', badge: 'bg-work' };
+        
+        return { code: 'wait', text: 'Скоро', class: 'st-wait', badge: 'bg-wait' };
+    }
+
+    // Отрисовка
+    function renderCards(filterCat) {
+        const grid = document.getElementById('dashboardGrid');
+        grid.innerHTML = '';
+
+        let filtered = allData.filter(item => filterCat === 'all' || item.category === filterCat);
+        const priority = { 'today': 1, 'work': 2, 'wait': 3, 'done': 4 };
+        
+        filtered.sort((a, b) => {
+            const statA = getStatus(a.start, a.end).code;
+            const statB = getStatus(b.start, b.end).code;
+            if (priority[statA] !== priority[statB]) return priority[statA] - priority[statB];
+            return a.end - b.end;
+        });
+
+        filtered.forEach(item => {
+            const s = getStatus(item.start, item.end);
+            
+            const cardHTML = `
+                <div class="card ${s.class}">
+                    <div>
+                        <div class="card-header">
+                            <span class="card-cat">${item.category}</span>
+                            <span class="status-badge ${s.badge}">${s.text}</span>
+                        </div>
+                        <div class="card-title">${item.name}</div>
+                        <div class="timeline">
+                            <div class="t-point">
+                                <span class="t-label">Начало</span>
+                                <span class="t-val">${item.startTxt}</span>
+                            </div>
+                            <div class="t-arrow">➝</div>
+                            <div class="t-point" style="text-align: right;">
+                                <span class="t-label">Срок</span>
+                                <span class="t-val" style="color:${s.code === 'today' ? '#d63031' : 'inherit'}">${item.endTxt}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="${STAT_URL}" target="_blank" class="btn">Перейти к публикации</a>
+                </div>
+            `;
+            grid.innerHTML += cardHTML;
+        });
+    }
+
+    // Фильтры
+    function generateFilters() {
+        const cats = [...new Set(allData.map(i => i.category))];
+        const container = document.getElementById('categoryFilters');
+        container.innerHTML = '<button class="filter-btn active" onclick="filterData(\'all\')">Все отрасли</button>';
+        
+        cats.forEach(cat => {
+            if(cat && cat !== "undefined") {
+                container.innerHTML += `<button class="filter-btn" onclick="filterData('${cat}')">${cat}</button>`;
+            }
+        });
+    }
+
+    window.filterData = function(cat) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        renderCards(cat);
+    }
+
+    // Уведомления
+    function checkNotifications() {
+        const todayItems = allData.filter(item => getStatus(item.start, item.end).code === 'today');
+        if (todayItems.length > 0) {
+            const list = document.getElementById('modalListContent');
+            list.innerHTML = "<ul>" + todayItems.map(i => `<li>${i.name}</li>`).join('') + "</ul>";
+            document.getElementById('notificationModal').style.display = 'flex';
+        }
+    }
+    window.closeModal = function() {
+        document.getElementById('notificationModal').style.display = 'none';
+    }
+
+    // PWA Установка
+    let deferredPrompt;
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('installContainer').style.display = 'block';
+    });
+    window.installPWA = async function() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') document.getElementById('installContainer').style.display = 'none';
+        }
+    }
+
+    // ЗАПУСК
+    fetchSheetData();
+
+</script>
+</body>
+</html>
