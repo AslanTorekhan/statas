@@ -1,5 +1,5 @@
-// Изменили название кэша, чтобы сбросить старую версию
-const CACHE_NAME = 'plan-dep-2026-v2';
+// ВЕРСИЯ v4 - Чтобы сбросить кэш у сотрудников
+const CACHE_NAME = 'stat-plan-v4';
 const urlsToCache = [
   './',
   './index.html',
@@ -7,8 +7,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', function(event) {
-  // При установке новой версии сразу берем управление
-  self.skipWaiting();
+  self.skipWaiting(); // Сразу активируем новую версию
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(function(cache) {
@@ -18,12 +17,12 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('activate', function(event) {
-  // Удаляем старые кэши (старый дизайн)
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
           if (cacheName !== CACHE_NAME) {
+            console.log('Удаление старого кэша:', cacheName);
             return caches.delete(cacheName);
           }
         })
